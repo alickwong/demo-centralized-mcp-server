@@ -10,7 +10,7 @@ This guide documents the steps to configure Okta as an OIDC identity provider fo
 ## Step 1: Log in to Okta Admin Console
 
 1. Navigate to [https://login.okta.com](https://login.okta.com)
-2. Enter your company name (Okta subdomain), e.g. `trial-8088255`
+2. Enter your company name (Okta subdomain), e.g. `dev-XXXXXXXX`
 3. Sign in with your admin credentials
 4. You will land on the **Admin Console** dashboard
 
@@ -81,7 +81,7 @@ After saving, you will be redirected to the app's **General** tab. Note the foll
 
 | Field | Description |
 |---|---|
-| **Client ID** | Shown under Client Credentials (e.g. `0oa116s4xvkFwMbSw698`) |
+| **Client ID** | Shown under Client Credentials (e.g. `0oaXXXXXXXXXXXXXXXXXX`) |
 | **Client Secret** | Shown below the Client ID. **Save this immediately** — Okta only displays it once. If lost, click "Generate new secret" to create a replacement. |
 
 ### Client Authentication
@@ -94,8 +94,8 @@ Update the `.env` file in the project root with the values from Okta:
 
 ```env
 # Okta OIDC Configuration
-OKTA_DOMAIN=trial-8088255.okta.com
-OKTA_CLIENT_ID=0oa116s4xvkFwMbSw698
+OKTA_DOMAIN=dev-XXXXXXXX.okta.com
+OKTA_CLIENT_ID=0oaXXXXXXXXXXXXXXXXXX
 OKTA_CLIENT_SECRET=<your-client-secret>
 ```
 
@@ -105,11 +105,11 @@ OKTA_CLIENT_SECRET=<your-client-secret>
 
 | Endpoint | URL |
 |---|---|
-| **Issuer** | `https://trial-8088255.okta.com/oauth2/default` |
-| **OpenID Config** | `https://trial-8088255.okta.com/oauth2/default/.well-known/openid-configuration` |
-| **Authorization** | `https://trial-8088255.okta.com/oauth2/default/v1/authorize` |
-| **Token** | `https://trial-8088255.okta.com/oauth2/default/v1/token` |
-| **JWKS** | `https://trial-8088255.okta.com/oauth2/default/v1/keys` |
+| **Issuer** | `https://dev-XXXXXXXX.okta.com/oauth2/default` |
+| **OpenID Config** | `https://dev-XXXXXXXX.okta.com/oauth2/default/.well-known/openid-configuration` |
+| **Authorization** | `https://dev-XXXXXXXX.okta.com/oauth2/default/v1/authorize` |
+| **Token** | `https://dev-XXXXXXXX.okta.com/oauth2/default/v1/token` |
+| **JWKS** | `https://dev-XXXXXXXX.okta.com/oauth2/default/v1/keys` |
 
 ## Step 6: Create an Okta API Token
 
