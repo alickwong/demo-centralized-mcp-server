@@ -1,0 +1,25 @@
+# Environment and secrets
+.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Generated notebooks
+*_executed.ipynb
+output_*.ipynb
+
+# gstack
+.gstack/
+
+# Generated config (contains AWS account IDs, gateway IDs)
+gateway_config.json
+
+# Terraform
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.backup
+terraform/.terraform.lock.hcl
+terraform/terraform.tfvars
+terraform/.build/
