@@ -18,8 +18,10 @@ Demonstrates **auth propagation** from Okta OIDC through a Strands agent to MCP 
    v
  AgentCore Gateway
    |── Ingress Auth: validates JWT (signature, audience, client_id)
-   |── Cedar Policy Engine (LOG_ONLY — logged, not enforced)
-   |── Agent-level RBAC: groups claim checked in system prompt
+   |── Cedar Policy Engine (ENFORCE mode)
+   |     principal: AgentCore::OAuthUser::"<JWT sub>"
+   |     action:    AgentCore::Action::"<TargetName>"
+   |     resource:  AgentCore::Gateway::"<gateway-arn>"
    |
    +-------------------+
    |                   |
@@ -30,12 +32,12 @@ Demonstrates **auth propagation** from Okta OIDC through a Strands agent to MCP 
 
 ### Auth Flow
 
-1. User authenticates via Okta Resource Owner Password grant -> receives JWT with `groups` claim
+1. User authenticates via Okta Resource Owner Password grant -> receives JWT with `sub` claim
 2. Strands Agent attaches JWT as `Bearer` token on MCP StreamableHTTP connection to Gateway
 3. Gateway validates JWT (signature, audience, `client_id` claim) via Okta JWKS endpoint
-4. Cedar policies are evaluated in LOG_ONLY mode (logged but not enforced)
-5. Agent checks user's group memberships from JWT claims in the system prompt
-6. ALLOW or DENY based on group membership — zero auth code in MCP servers
+4. Gateway maps JWT `sub` to Cedar principal `AgentCore::OAuthUser::"<sub>"`
+5. Cedar policies evaluated in **ENFORCE** mode — Gateway permits or denies tool discovery and invocation
+6. No access control logic needed in the agent or MCP servers
 
 ### Demo Scenario
 
@@ -150,14 +152,19 @@ The setup notebook creates these AWS resources:
 | ECS/Fargate service | CRM MCP server container (for future HTTPS integration) |
 | ECR repository | Docker image for the CRM MCP server |
 | AgentCore Gateway | Centralized MCP proxy with Okta OIDC auth |
-| Cedar policy engine | Policy definitions in LOG_ONLY mode |
+| Cedar policy engine | Policy definitions in ENFORCE mode |
 | IAM roles | Lambda execution + ECS task execution + Gateway roles |
 
 ## Known Limitations
 
-### Cedar Policy Enforcement
+### Cedar Entity Model
 
-Cedar policies are configured in **LOG_ONLY** mode. In ENFORCE mode, policies with `resource is AgentCore::Gateway` or `resource == AgentCore::Gateway::"<arn>"` are accepted by the API but don't match at runtime ("No policy applies to the request"). Access control is instead enforced at the agent level using JWT group claims. This appears to be a bug in the AgentCore Gateway Cedar integration.
+The Cedar schema for AgentCore Gateway uses:
+- **Principal**: `AgentCore::OAuthUser::"<JWT sub>"` — the JWT `sub` claim is mapped to Cedar principals
+- **Action**: `AgentCore::Action::"<TargetName>"` or `AgentCore::Action::"<Target>___<tool>"`
+- **Resource**: `AgentCore::Gateway::"<gateway-arn>"`
+
+JWT group claims (e.g., `groups`) are **not** exposed as Cedar principal attributes. Group-based filtering must use explicit principal matching per user `sub` value. Use `start_policy_generation` API to discover valid entity types for your gateway.
 
 ### MCP Server Targets Require HTTPS
 
@@ -169,7 +176,7 @@ Run the **Cleanup** cell at the bottom of `01_setup.ipynb` to delete all AWS res
 
 ## Key Concepts
 
-- **AgentCore Gateway**: Managed MCP proxy that handles auth, routing, and (future) policy enforcement
+- **AgentCore Gateway**: Managed MCP proxy that handles auth, routing, and Cedar policy enforcement
 - **Custom JWT Authorizer**: Gateway validates Okta JWTs against the JWKS endpoint, checking `client_id`, audience, and signature
-- **Auth Propagation**: User identity flows from Okta -> JWT -> Agent -> Gateway -> tools, with zero auth code in individual MCP servers
-- **Group-Based Access Control**: JWT `groups` claim determines what each user can access
+- **Cedar ENFORCE Mode**: Gateway evaluates Cedar policies at tool discovery and invocation time, mapping JWT `sub` to `AgentCore::OAuthUser` principals
+- **Auth Propagation**: User identity flows from Okta -> JWT -> Agent -> Gateway -> Cedar -> tools, with zero auth code in individual MCP servers
