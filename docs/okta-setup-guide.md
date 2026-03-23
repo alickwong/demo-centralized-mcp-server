@@ -99,6 +99,8 @@ OKTA_CLIENT_ID=0oaXXXXXXXXXXXXXXXXXX
 OKTA_CLIENT_SECRET=<your-client-secret>
 ```
 
+> **Important:** Use the non-admin domain (e.g., `dev-XXXXXXXX.okta.com`), not the admin console domain (`dev-XXXXXXXX-admin.okta.com`). The admin domain does not serve API requests and will cause all subsequent API calls to fail.
+
 ## OIDC Endpoints Reference
 
 > **Important:** This demo uses the **default authorization server** (`/oauth2/default`), not the Org server. The Org server does not support custom scopes or claims.
@@ -135,22 +137,22 @@ OKTA_API_TOKEN=<your-api-token>
 Okta Identity Engine (OIE) trial accounts don't expose the Resource Owner Password (ROPC) grant type in the UI. You must enable it via the Okta Management API.
 
 ```bash
-# Get current app config
-curl -s -H "Authorization: SSWS ${OKTA_API_TOKEN}" \
-  https://${OKTA_DOMAIN}/api/v1/apps/${OKTA_CLIENT_ID} | jq '.settings.oauthClient.grant_types'
+# Get the full current app config (Okta PUT requires the complete app object)
+APP_CONFIG=$(curl -s -H "Authorization: SSWS ${OKTA_API_TOKEN}" \
+  https://${OKTA_DOMAIN}/api/v1/apps/${OKTA_CLIENT_ID})
 
-# Add 'password' to grant_types (preserve existing ones)
-curl -X PUT -H "Authorization: SSWS ${OKTA_API_TOKEN}" \
+echo "$APP_CONFIG" | jq '.settings.oauthClient.grant_types'
+
+# Merge new grant_types into the full app config, then PUT it back
+UPDATED_APP=$(echo "$APP_CONFIG" | jq '.settings.oauthClient.grant_types = ["authorization_code", "refresh_token", "password", "client_credentials"]')
+
+curl -s -X PUT -H "Authorization: SSWS ${OKTA_API_TOKEN}" \
   -H "Content-Type: application/json" \
   https://${OKTA_DOMAIN}/api/v1/apps/${OKTA_CLIENT_ID} \
-  -d '{
-    "settings": {
-      "oauthClient": {
-        "grant_types": ["authorization_code", "refresh_token", "password", "client_credentials"]
-      }
-    }
-  }'
+  -d "$UPDATED_APP" | jq '.settings.oauthClient.grant_types'
 ```
+
+> **Gotcha:** The Okta Apps API requires the full app object on PUT. Sending only the `settings` fragment will fail with `Api validation failed: label`. Always GET the full config first, modify the field you need, then PUT the whole object back.
 
 **Expected result:** `grant_types` now includes `password`.
 
@@ -186,10 +188,13 @@ curl -X POST -H "Authorization: SSWS ${OKTA_API_TOKEN}" \
     "claimType": "RESOURCE",
     "valueType": "GROUPS",
     "value": ".*",
+    "group_filter_type": "REGEX",
     "alwaysIncludeInToken": true,
     "conditions": { "scopes": ["groups"] }
   }'
 ```
+
+> **Note:** The `group_filter_type` field is required when `valueType` is `GROUPS`. Without it, the API returns `Api validation failed: group_filter_type`. Use `"REGEX"` to match the `".*"` value pattern.
 
 ### `client_id` claim — required for AgentCore Gateway
 
@@ -247,7 +252,9 @@ curl -X POST -H "Authorization: SSWS ${OKTA_API_TOKEN}" \
         "include": ["implicit", "password", "client_credentials", "authorization_code"]
       },
       "people": {
-        "everyone": { "include": ["EVERYONE"] }
+        "groups": {
+          "include": ["EVERYONE"]
+        }
       },
       "scopes": {
         "include": ["*"]
@@ -262,6 +269,8 @@ curl -X POST -H "Authorization: SSWS ${OKTA_API_TOKEN}" \
     }
   }'
 ```
+
+> **Gotcha:** The `people` condition must use `"groups": { "include": ["EVERYONE"] }`, not `"everyone": { "include": ["EVERYONE"] }`. The latter structure is not recognized by the API and results in a validation error requiring at least one valid user or group.
 
 ## Step 11: Create a Password-Only Authentication Policy
 
@@ -288,8 +297,9 @@ curl -X POST -H "Authorization: SSWS ${OKTA_API_TOKEN}" \
   https://${OKTA_DOMAIN}/api/v1/policies/${POLICY_ID}/rules \
   -d '{
     "name": "Password only",
-    "type": "ACCESS_POLICY_RULE",
+    "type": "ACCESS_POLICY",
     "status": "ACTIVE",
+    "priority": 1,
     "conditions": {
       "network": { "connection": "ANYWHERE" }
     },
@@ -308,6 +318,10 @@ curl -X POST -H "Authorization: SSWS ${OKTA_API_TOKEN}" \
     }
   }'
 ```
+
+> **Gotcha:** The rule `type` must be `"ACCESS_POLICY"` (matching the parent policy type), not `"ACCESS_POLICY_RULE"`. Using the wrong type returns `Invalid rule type specified`.
+>
+> **Note:** The new policy is created with a default "Catch-all Rule" set to 2FA. Adding a higher-priority rule (priority 1) with 1FA overrides it for all matching requests. You do not need to modify the catch-all rule (it's read-only).
 
 Then assign this policy to your app:
 
@@ -385,15 +399,26 @@ Test that tokens contain the expected claims:
 
 ```bash
 # Get an access token for Alice
-TOKEN=$(curl -s -X POST \
+TOKEN_RESPONSE=$(curl -s -X POST \
   https://${OKTA_DOMAIN}/oauth2/default/v1/token \
   -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "grant_type=password&username=${ALICE_USERNAME}&password=${ALICE_PASSWORD}&scope=openid+profile+groups&client_id=${OKTA_CLIENT_ID}&client_secret=${OKTA_CLIENT_SECRET}" \
-  | jq -r '.access_token')
+  -d "grant_type=password&username=${ALICE_USERNAME}&password=$(python3 -c "import urllib.parse; print(urllib.parse.quote('${ALICE_PASSWORD}'))")&scope=openid+profile+groups&client_id=${OKTA_CLIENT_ID}&client_secret=${OKTA_CLIENT_SECRET}")
 
-# Decode and verify claims (base64 decode the payload)
-echo $TOKEN | cut -d. -f2 | base64 -d 2>/dev/null | jq .
+# Check for errors
+echo "$TOKEN_RESPONSE" | jq -e '.error' > /dev/null 2>&1 && echo "ERROR:" && echo "$TOKEN_RESPONSE" | jq . && exit 1
+
+TOKEN=$(echo "$TOKEN_RESPONSE" | jq -r '.access_token')
+
+# Decode and verify claims (add base64 padding for macOS compatibility)
+PAYLOAD=$(echo "$TOKEN" | cut -d. -f2 | tr '_-' '/+')
+PADDING=$(( 4 - ${#PAYLOAD} % 4 ))
+[ $PADDING -lt 4 ] && PAYLOAD="${PAYLOAD}$(printf '=%.0s' $(seq 1 $PADDING))"
+echo "$PAYLOAD" | base64 -d 2>/dev/null | jq .
 ```
+
+> **Note:** The password must be URL-encoded in the request body. Special characters like `!` will cause the request to fail silently or return `invalid_grant` if not encoded. The example above uses Python for encoding; alternatively, manually replace `!` with `%21`.
+>
+> **macOS note:** The `base64 -d` command on macOS may fail on JWT payloads because they use base64url encoding (no padding). The decode snippet above handles this by converting base64url characters and adding padding.
 
 **Expected claims in the access token:**
 
@@ -422,6 +447,18 @@ All endpoints use the **default** authorization server at `/oauth2/default`:
 > **Note:** The demo uses the `/oauth2/default` authorization server, not the Org authorization server at the root path. This is important — the Org server does not support custom scopes or claims.
 
 ## Troubleshooting
+
+### `Api validation failed: label` when updating app grant types
+The Okta Apps API requires the full app object on PUT requests. You cannot send a partial payload with only the fields you want to change. See [Step 7](#step-7-enable-resource-owner-password-grant) for the correct approach (GET full config → modify → PUT back).
+
+### `Api validation failed: group_filter_type` when creating groups claim
+The `group_filter_type` field is required when creating a claim with `valueType: "GROUPS"`. Add `"group_filter_type": "REGEX"` to the request body. See [Step 9](#step-9-create-custom-claims-on-the-default-authorization-server).
+
+### `Invalid rule type specified` when creating authentication policy rule
+The rule `type` must match the parent policy type. For `ACCESS_POLICY` policies, use `"type": "ACCESS_POLICY"` (not `"ACCESS_POLICY_RULE"`). See [Step 11](#step-11-create-a-password-only-authentication-policy).
+
+### `conditions.people: At least one of ... must contain a valid user or group`
+The `people` condition in authorization server policy rules must use `"groups": { "include": ["EVERYONE"] }`, not `"everyone": { "include": ["EVERYONE"] }`. See [Step 10](#step-10-create-an-access-policy-on-the-authorization-server).
 
 ### `insufficient_scope` from AgentCore Gateway
 The Gateway checks the `client_id` claim (not `cid`). Ensure you created the custom `client_id` claim in [Step 9](#step-9-create-custom-claims-on-the-default-authorization-server).
