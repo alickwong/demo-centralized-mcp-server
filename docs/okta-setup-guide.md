@@ -501,7 +501,115 @@ If you navigate away before saving the client secret, generate a new one:
 ### Resource Owner Password grant not visible in Okta UI
 Okta Identity Engine (OIE) trial accounts don't show ROPC in the UI. Use the API approach in [Step 7](#step-7-enable-resource-owner-password-grant).
 
+### `The authorization server resource does not have any configured default scopes, 'scope' must be provided`
+Claude Code's MCP OAuth flow sends a `resource` parameter (RFC 9728) in the authorization request. Okta requires either an explicit `scope` parameter or default scopes configured on the authorization server. See [Appendix A](#appendix-a-claude-code-spa-app-setup) for the fix.
+
 ### Trial expiration
 The Okta trial lasts 30 days. To continue using it, either:
 - Convert to a paid plan
 - Sign up for the free [Okta Developer Edition](https://developer.okta.com/signup/)
+
+---
+
+## Appendix A: Claude Code SPA App Setup
+
+Claude Code has native MCP OAuth support — it opens a browser tab for Okta login and manages the JWT lifecycle automatically. This requires a separate **SPA (browser)** app type because Claude Code uses **Authorization Code + PKCE** (a public client flow with no client secret).
+
+> **Note:** The Web app from Steps 2-4 uses ROPC with a client secret (for the Strands agent in `02_demo.ipynb`). Claude Code needs a public client that doesn't require a secret. `03_claude_code_oauth_demo.ipynb` automates all the steps below.
+
+### A1. Create a SPA Application
+
+```bash
+curl -X POST -H "Authorization: SSWS ${OKTA_API_TOKEN}" \
+  -H "Content-Type: application/json" \
+  https://${OKTA_DOMAIN}/api/v1/apps \
+  -d '{
+    "name": "oidc_client",
+    "label": "AgentCore Gateway - Claude Code (SPA)",
+    "signOnMode": "OPENID_CONNECT",
+    "settings": {
+      "oauthClient": {
+        "application_type": "browser",
+        "grant_types": ["authorization_code"],
+        "response_types": ["code"],
+        "redirect_uris": ["http://localhost:8400/callback"],
+        "post_logout_redirect_uris": ["http://localhost:8400"]
+      }
+    },
+    "credentials": {
+      "oauthClient": {
+        "token_endpoint_auth_method": "none"
+      }
+    }
+  }'
+```
+
+Note the `client_id` from the response — this is the **SPA Client ID** (no secret needed).
+
+Key differences from the Web app:
+
+| | Web App (02_demo) | SPA App (Claude Code) |
+|--|---|---|
+| **`application_type`** | `web` | `browser` |
+| **`token_endpoint_auth_method`** | `client_secret_basic` | `none` (PKCE only) |
+| **Grant type** | `password` (ROPC) | `authorization_code` |
+| **Redirect URI** | `localhost:8080` | `localhost:8400` |
+
+### A2. Assign to Everyone Group
+
+```bash
+# Get the Everyone group ID
+EVERYONE_ID=$(curl -s -H "Authorization: SSWS ${OKTA_API_TOKEN}" \
+  "https://${OKTA_DOMAIN}/api/v1/groups?q=Everyone&limit=1" | jq -r '.[0].id')
+
+# Assign app to group
+curl -X PUT -H "Authorization: SSWS ${OKTA_API_TOKEN}" \
+  https://${OKTA_DOMAIN}/api/v1/apps/${SPA_CLIENT_ID}/groups/${EVERYONE_ID}
+```
+
+### A3. Set Default Scopes
+
+Claude Code follows the MCP OAuth spec (RFC 9728) and sends a `resource` parameter in the authorization request. Okta requires either a `scope` parameter or default scopes. Since Claude Code doesn't send `scope` by default, set the `groups` custom scope as a default:
+
+```bash
+# Get the groups scope ID
+SCOPE_ID=$(curl -s -H "Authorization: SSWS ${OKTA_API_TOKEN}" \
+  "https://${OKTA_DOMAIN}/api/v1/authorizationServers/default/scopes" \
+  | jq -r '.[] | select(.name == "groups") | .id')
+
+# Get full scope object, set default=true, PUT it back
+SCOPE=$(curl -s -H "Authorization: SSWS ${OKTA_API_TOKEN}" \
+  "https://${OKTA_DOMAIN}/api/v1/authorizationServers/default/scopes/${SCOPE_ID}")
+
+echo "$SCOPE" | jq 'del(._links) | .default = true | .metadataPublish = "ALL_CLIENTS"' | \
+  curl -s -X PUT -H "Authorization: SSWS ${OKTA_API_TOKEN}" \
+  -H "Content-Type: application/json" \
+  "https://${OKTA_DOMAIN}/api/v1/authorizationServers/default/scopes/${SCOPE_ID}" \
+  -d @-
+```
+
+> **Note:** System scopes (`openid`, `profile`, etc.) cannot be set as default via the API. Only custom scopes support the `default` property.
+
+### A4. Update Gateway `allowedClients`
+
+Add the SPA Client ID to the Gateway's `allowedClients` list (alongside the existing Web app client ID). This is done in `03_claude_code_oauth_demo.ipynb` Cell 4.
+
+### A5. Configure Claude Code
+
+The MCP server config requires explicit `authorizationUrl` and `tokenUrl` because Claude Code's MCP OAuth discovery sends a `resource` parameter that Okta doesn't handle without explicit scopes:
+
+```json
+{
+  "type": "http",
+  "url": "https://<gateway-id>.gateway.bedrock-agentcore.<region>.amazonaws.com/mcp",
+  "oauth": {
+    "clientId": "<SPA_CLIENT_ID>",
+    "callbackPort": 8400,
+    "scope": "openid groups",
+    "authorizationUrl": "https://<okta-domain>/oauth2/default/v1/authorize",
+    "tokenUrl": "https://<okta-domain>/oauth2/default/v1/token"
+  }
+}
+```
+
+> **Workaround:** `claude mcp add-json` may not persist the `scope`, `authorizationUrl`, and `tokenUrl` fields. `03_claude_code_oauth_demo.ipynb` patches `.claude.json` directly to ensure these fields are present.

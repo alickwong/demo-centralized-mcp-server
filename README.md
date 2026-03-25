@@ -203,7 +203,8 @@ The Gateway only accepts HTTPS endpoints for MCP server targets. The ECS-based C
 
 ## Cleanup
 
-Run the **Cleanup** cell at the bottom of `01_setup.ipynb` to delete all AWS resources.
+- Run the **Cleanup** cell at the bottom of `01_setup.ipynb` to delete all AWS resources (Gateway, Lambda, ECS, IAM)
+- Run the **Cleanup** cell at the bottom of `03_claude_code_oauth_demo.ipynb` to remove the SPA app and revert the Gateway
 
 ## Key Concepts
 
