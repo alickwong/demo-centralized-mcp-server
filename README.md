@@ -1,6 +1,8 @@
 # Centralized MCP Server Management with AgentCore Gateway
 
-Demonstrates **auth propagation** from Okta OIDC through a Strands agent to MCP servers, all managed by **AWS AgentCore Gateway**.
+Demonstrates **auth propagation** through MCP servers managed by **AWS AgentCore Gateway**, with two client paths:
+- **Path 1 (Strands Agent):** Programmatic Okta ROPC flow with per-user Cedar policy enforcement
+- **Path 2 (Claude Code):** Native MCP OAuth with browser-based Okta login and per-user Cedar policy enforcement
 
 ## Architecture
 
@@ -47,6 +49,31 @@ Demonstrates **auth propagation** from Okta OIDC through a Strands agent to MCP 
 | Bob | `finance-admins` | ALLOWED | ALLOWED |
 
 Same Gateway, same agent code, same question. Different user identity -> different access.
+
+### Claude Code Auth Path (03_claude_code_oauth_demo.ipynb)
+
+```
+Claude Code
+  |
+  | MCP StreamableHTTP -> 401 -> OAuth discovery
+  | Browser popup -> Okta login (Authorization Code + PKCE)
+  | JWT Bearer token (cached automatically)
+  v
+AgentCore Gateway (CUSTOM_JWT authorizer)
+  |-- Validates JWT (signature, audience, client_id)
+  |-- Cedar Policy Engine (ENFORCE mode)
+  |
+  +-------------------+
+  |                   |
+  v                   v
+Lambda             Lambda
+(Weather)          (Finance)
+```
+
+Claude Code has **native MCP OAuth** support. When connecting to the Gateway, it discovers
+the Okta authorization server, opens a browser for login, and manages the JWT lifecycle
+automatically. No token management code needed — Cedar policies enforce the same per-user
+access control as the Strands agent path.
 
 ## Prerequisites
 
@@ -109,10 +136,13 @@ cp .env.example .env
 # 3. Run the setup notebook (creates all AWS resources)
 jupyter notebook 01_setup.ipynb
 
-# 4. Run the demo notebook (live policy enforcement)
+# 4. Run the Strands agent demo (programmatic ROPC token flow)
 jupyter notebook 02_demo.ipynb
 
-# 5. Cleanup (run the cleanup cell in 01_setup.ipynb when done)
+# 5. Run the Claude Code demo (native OAuth with browser login)
+jupyter notebook 03_claude_code_oauth_demo.ipynb
+
+# 6. Cleanup (run the cleanup cells in each notebook when done)
 ```
 
 ## File Structure
@@ -125,7 +155,8 @@ centralized-mcp-server-demo/
 ├── .env.example                 # Environment variable template
 ├── requirements.txt             # Python dependencies
 ├── 01_setup.ipynb               # Infrastructure setup notebook
-├── 02_demo.ipynb                # Live demo notebook
+├── 02_demo.ipynb                # Strands agent demo (programmatic ROPC)
+├── 03_claude_code_oauth_demo.ipynb  # Claude Code demo (native OAuth)
 ├── terraform/                   # ECR, ECS, Lambda, IAM resources
 │   ├── main.tf
 │   ├── iam.tf
@@ -180,3 +211,4 @@ Run the **Cleanup** cell at the bottom of `01_setup.ipynb` to delete all AWS res
 - **Custom JWT Authorizer**: Gateway validates Okta JWTs against the JWKS endpoint, checking `client_id`, audience, and signature
 - **Cedar ENFORCE Mode**: Gateway evaluates Cedar policies at tool discovery and invocation time, mapping JWT `sub` to `AgentCore::OAuthUser` principals
 - **Auth Propagation**: User identity flows from Okta -> JWT -> Agent -> Gateway -> Cedar -> tools, with zero auth code in individual MCP servers
+- **Native MCP OAuth**: Claude Code discovers the authorization server from Gateway metadata, handles browser-based login, and caches tokens — no custom auth code needed
