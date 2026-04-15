@@ -23,24 +23,24 @@ output "ecs_task_role_arn" {
   value       = aws_iam_role.ecs_task_execution.arn
 }
 
-output "weather_lambda_arn" {
-  description = "Weather Lambda function ARN"
-  value       = aws_lambda_function.weather.arn
+output "policy_lookup_lambda_arn" {
+  description = "Policy Lookup Lambda function ARN"
+  value       = aws_lambda_function.policy_lookup.arn
 }
 
-output "weather_lambda_name" {
-  description = "Weather Lambda function name"
-  value       = aws_lambda_function.weather.function_name
+output "policy_lookup_lambda_name" {
+  description = "Policy Lookup Lambda function name"
+  value       = aws_lambda_function.policy_lookup.function_name
 }
 
-output "finance_lambda_arn" {
-  description = "Finance Lambda function ARN"
-  value       = aws_lambda_function.finance.arn
+output "claims_lambda_arn" {
+  description = "Claims Lambda function ARN"
+  value       = aws_lambda_function.claims.arn
 }
 
-output "finance_lambda_name" {
-  description = "Finance Lambda function name"
-  value       = aws_lambda_function.finance.function_name
+output "claims_lambda_name" {
+  description = "Claims Lambda function name"
+  value       = aws_lambda_function.claims.function_name
 }
 
 output "lambda_role_name" {

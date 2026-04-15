@@ -63,8 +63,8 @@ data "aws_iam_policy_document" "gateway_invoke_lambda" {
   statement {
     actions   = ["lambda:InvokeFunction"]
     resources = [
-      aws_lambda_function.weather.arn,
-      aws_lambda_function.finance.arn,
+      aws_lambda_function.policy_lookup.arn,
+      aws_lambda_function.claims.arn,
     ]
   }
 }

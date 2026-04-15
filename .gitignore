@@ -13,6 +13,12 @@ output_*.ipynb
 # gstack
 .gstack/
 
+# Jupyter checkpoints
+.ipynb_checkpoints/
+
+# VS Code workspace
+*.code-workspace
+
 # Generated config (contains AWS account IDs, gateway IDs)
 gateway_config.json
 
