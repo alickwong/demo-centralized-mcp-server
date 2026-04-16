@@ -1,6 +1,9 @@
 # Environment and secrets
 .env
 
+# Local MCP config (per-user server connections)
+.mcp.json
+
 # Python
 __pycache__/
 *.pyc
