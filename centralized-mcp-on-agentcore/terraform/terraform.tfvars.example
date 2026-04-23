@@ -1,6 +1,2 @@
-aws_region        = "us-east-1"
-demo_prefix       = "agentcore-mcp-demo"
-vpc_id            = "vpc-xxxxxxxxxxxxxxxxx"
-public_subnet_ids = ["subnet-xxxxxxxxxxxxxxxxx", "subnet-xxxxxxxxxxxxxxxxx"]
-container_image   = "123456789012.dkr.ecr.us-east-1.amazonaws.com/agentcore-mcp-demo-crm-mcp:latest"
-container_port    = 8080
+aws_region  = "us-east-1"
+demo_prefix = "agentcore-mcp-demo"

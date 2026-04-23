@@ -1,10 +1,6 @@
-## Compute
-
 # Build a centralized MCP server gateway with Amazon Bedrock AgentCore
 
-
-
-Organizations building AI-powered applications with the Model Context Protocol (MCP) often deploy multiple MCP servers across their infrastructure. As the number of tools grows, managing authentication and authorization for each server becomes a significant operational challenge. Development teams find themselves embedding access control logic into individual backends, duplicating OAuth token validation across services, and struggling to maintain consistent security policies.
+Organizations that build a centralized Model Context Protocol (MCP) server gateway with Amazon Bedrock AgentCore can unify authentication and authorization across multiple tool backends in a single managed endpoint. Without this approach, managing access control for each MCP server becomes a significant operational challenge as the number of tools grows. Development teams find themselves embedding access control logic into individual backends, duplicating OAuth token validation across services, and struggling to maintain consistent security policies.
 
 [Amazon Bedrock AgentCore](https://aws.amazon.com/bedrock/agentcore/) Gateway addresses this challenge by providing a managed MCP proxy that centralizes authentication, authorization, and tool routing in a single endpoint. With AgentCore Gateway, you can connect [AWS Lambda](https://aws.amazon.com/lambda/) functions as tool backends behind one gateway that enforces [Cedar](https://www.cedarpolicy.com/) policies for fine-grained access control.
 
@@ -392,16 +388,15 @@ and returns the policy details: Homeowners coverage, $750,000 limit, Active stat
 
 [Azupay](https://azupay.com.au/) is an Australian fintech company pioneering real-time Pay by Bank solutions for enterprise. Founded in 2019, Azupay was the first to offer consumer-to-business and business-to-business payment solutions using PayID and [PayTo](https://payto.com.au/) on Australia's [New Payments Platform (NPP)](https://www.nppa.com.au/). The company serves major customers across banking, telecommunications, education, and government, including Optus, which processed over 450,000 PayID transactions from 88,000+ customers in its first 12 months of using Azupay.
 
-Azupay's co-founder and CTO, Andrew Seymour, was the lead architect for xxxxxxxxx
+Azupay's co-founder and CTO, Andrew Seymour, built the company's payment infrastructure on AWS from the ground up, designing systems that process real-time payments for some of Australia's largest enterprises.
 
-**The challenge:** As Azupay's platform scales to handle growing real-time payment volumes across enterprises, the engineering team needs to give internal developers and operations staff AI-powered access to xxxxxxxxxx
+**The challenge:** As Azupay scales to handle growing real-time payment volumes across enterprises, the engineering team needs to give internal developers and operations staff AI-powered access to payment reconciliation tools, transaction lookups, and merchant onboarding workflows — without exposing sensitive financial data or duplicating authorization logic across each service.
 
-**The solution:** 
+**The solution:** Azupay is evaluating Amazon Bedrock AgentCore Gateway to centralize MCP tool access behind a single authenticated endpoint. By defining Cedar policies that map to their existing role hierarchy, the team can grant AI agents scoped access to specific payment tools based on the operator's role and clearance level. This approach removes the need to embed access control in each backend service.
 
+**Outcomes:** Azupay expects this architecture to reduce the time spent on per-service authorization setup and provide a consistent audit trail for AI-initiated actions across their payment tools.
 
-**Outcomes:** 
-
-> "Working with Azupay has allowed us to modernise the way Australian universities handle payments. The ability to offer PayID and PayTo in a real-time, fully reconciled way is a game-changer for institutions and students alike."
+> "Working with Azupay has allowed us to modernise the way Australian universities handle payments. The ability to offer PayID and PayTo in a real-time, fully reconciled way has transformed how institutions and students handle payments."
 > — Azupay customer testimonial
 
 ## Cleanup
@@ -431,13 +426,15 @@ Get started by exploring the following resources:
 - [AgentCore Gateway documentation](https://docs.aws.amazon.com/bedrock/latest/userguide/agentcore.html)
 - [Cedar policy language reference](https://docs.cedarpolicy.com/)
 - [Claude Code MCP documentation](https://docs.anthropic.com/en/docs/claude-code/mcp)
-- [Demo repository on GitHub](https://github.com/your-org/demo-centralized-mcp-server)
+- [Simplify MCP server management with Amazon Bedrock AgentCore](https://aws.amazon.com/blogs/machine-learning/) (related blog post)
+- [Demo repository on GitHub](https://github.com/build-on-aws/demo-centralized-mcp-server)
+- [AWS re:Post — Amazon Bedrock community](https://repost.aws/tags/TAi2tbZBkMTl-Hy3y-Y0sWJg/amazon-bedrock)
 
 For more information about MCP server patterns on AWS, refer to the [AgentCore Getting Started Guide](https://docs.aws.amazon.com/bedrock/latest/userguide/agentcore-getting-started.html).
 
 ---
 
 ### About the authors
-**Andrew Seymour** Azupay's co-founder and CTO 
+**Andrew Seymour** is co-founder and CTO of Azupay. He designed and built Azupay's real-time payment infrastructure on AWS, enabling PayID and PayTo solutions for enterprise customers across Australia. Andrew has over 20 years of experience in payment systems and distributed architecture.
 
-**Alick Wong** is a Solutions Architect at Amazon Web Services, focusing on AI/ML and serverless architectures. [Author Name] helps customers design and implement production-ready AI agent systems on AWS.
+**Alick Wong** is a Solutions Architect at Amazon Web Services, focusing on AI/ML and serverless architectures. Alick helps customers design and implement production-ready AI agent systems on AWS.

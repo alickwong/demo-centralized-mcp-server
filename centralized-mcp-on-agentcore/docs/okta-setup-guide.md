@@ -120,7 +120,7 @@ An API token is needed for server-side Okta management operations (e.g., creatin
 1. In the Okta Admin Console, go to **Security** > **API**
 2. Click the **Tokens** tab
 3. Click **Create Token**
-4. Enter a name for the token, e.g. `Centralized MCP Server`
+4. Enter a name for the token, e.g. `Centralized MCP Server Setup`
 5. Click **Create Token**
 6. **Copy the token value immediately** — Okta only displays it once. If lost, you must revoke and create a new one.
 
