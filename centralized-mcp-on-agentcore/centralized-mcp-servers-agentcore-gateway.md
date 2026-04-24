@@ -75,7 +75,7 @@ The PolicyLookup Lambda function serves as a read-only policy database. Create t
 # Policy lookup handler - returns insurance policy details
 def lambda_handler(event, context):
     policy_number = event.get("policy_number", "")
-    
+
     policies = {
         "POL-10042": {
             "holder": "Sarah Chen",
@@ -85,7 +85,7 @@ def lambda_handler(event, context):
         },
         # Additional policies defined here
     }
-    
+
     if policy_number in policies:
         return {"status": "found", "policy": policies[policy_number]}
     return {"status": "not_found", "message": f"No policy found for {policy_number}"}
@@ -98,17 +98,17 @@ The ClaimsData Lambda function handles confidential claims records and supports 
 def lambda_handler(event, context):
     query = event.get("query", "")
     max_amount = event.get("max_amount", None)
-    
+
     # Read the caller's identity from the gateway context
     request_context = event.get("context", {}).get("requestContext", {})
     caller_sub = request_context.get("sub", "")
-    
+
     # Apply per-user amount limits when configured
     contextual_user = os.environ.get("CONTEXTUAL_USER", "")
     if caller_sub == contextual_user and max_amount:
         contextual_limit = int(os.environ.get("CONTEXTUAL_MAX_AMOUNT", "100000"))
         claims = [c for c in claims if c["amount_claimed"] <= contextual_limit]
-    
+
     return {"status": "success", "claims": matching_claims}
 ```
 
@@ -383,21 +383,6 @@ You can test the connection by asking Claude Code to look up an insurance policy
 Claude Code calls the lookup_policy tool via the AgentCore Gateway
 and returns the policy details: Homeowners coverage, $750,000 limit, Active status.
 ```
-
-## Customer story: Azupay — Securing real-time payment tools with centralized access control
-
-[Azupay](https://azupay.com.au/) is an Australian fintech company pioneering real-time Pay by Bank solutions for enterprise. Founded in 2019, Azupay was the first to offer consumer-to-business and business-to-business payment solutions using PayID and [PayTo](https://payto.com.au/) on Australia's [New Payments Platform (NPP)](https://www.nppa.com.au/). The company serves major customers across banking, telecommunications, education, and government, including Optus, which processed over 450,000 PayID transactions from 88,000+ customers in its first 12 months of using Azupay.
-
-Azupay's co-founder and CTO, Andrew Seymour, built the company's payment infrastructure on AWS from the ground up, designing systems that process real-time payments for some of Australia's largest enterprises.
-
-**The challenge:** As Azupay scales to handle growing real-time payment volumes across enterprises, the engineering team needs to give internal developers and operations staff AI-powered access to payment reconciliation tools, transaction lookups, and merchant onboarding workflows — without exposing sensitive financial data or duplicating authorization logic across each service.
-
-**The solution:** Azupay is evaluating Amazon Bedrock AgentCore Gateway to centralize MCP tool access behind a single authenticated endpoint. By defining Cedar policies that map to their existing role hierarchy, the team can grant AI agents scoped access to specific payment tools based on the operator's role and clearance level. This approach removes the need to embed access control in each backend service.
-
-**Outcomes:** Azupay expects this architecture to reduce the time spent on per-service authorization setup and provide a consistent audit trail for AI-initiated actions across their payment tools.
-
-> "Working with Azupay has allowed us to modernise the way Australian universities handle payments. The ability to offer PayID and PayTo in a real-time, fully reconciled way has transformed how institutions and students handle payments."
-> — Azupay customer testimonial
 
 ## Cleanup
 
