@@ -465,4 +465,7 @@ Get started by exploring the following resources:
 
 For more information about MCP server patterns on AWS, refer to the [AgentCore Getting Started Guide](https://docs.aws.amazon.com/bedrock/latest/userguide/agentcore-getting-started.html).
 
+---
 
+### About the authors
+**Alick Wong** is a Solutions Architect at Amazon Web Services, focusing on AI/ML and serverless architectures. Alick helps customers design and implement production-ready AI agent systems on AWS.
